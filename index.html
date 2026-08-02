@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>QUIET</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#04050A;--pale:#D8E2EC;--dim:#5C6880;--warn:#FF3B4E;--amber:#FFC24B;--line:#FFFFFF16}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+html,body{height:100%;overflow:hidden;background:var(--ink);color:var(--pale);
+  font-family:"Space Grotesk",system-ui,sans-serif;touch-action:none;overscroll-behavior:none}
+canvas{display:block;position:fixed;inset:0}
+
+#hud{position:fixed;inset:0;pointer-events:none;z-index:3;
+  padding:max(12px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right))
+          max(12px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+.tag{font-size:8px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+
+#steps{position:absolute;top:12px;left:0;right:0;text-align:center}
+#steps b{font-family:"Bricolage Grotesque",sans-serif;font-size:34px;line-height:1;
+  letter-spacing:-.03em;font-variant-numeric:tabular-nums;display:block}
+
+#noiseBox{position:absolute;bottom:14px;left:16px;width:34vw;max-width:250px;min-width:150px}
+#noiseBar{height:11px;background:#FFFFFF10;border:1px solid var(--line);border-radius:3px;position:relative;overflow:hidden}
+#noiseFill{height:100%;width:0%;background:linear-gradient(90deg,#4BD6A0,#FFC24B);transition:width .08s linear}
+#thresh{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--warn);
+  box-shadow:0 0 6px #FF3B4E;transition:left .3s}
+
+#torchBox{position:absolute;bottom:14px;right:16px;width:26vw;max-width:190px;min-width:120px;text-align:right}
+#torchBar{height:6px;background:#FFFFFF10;border:1px solid var(--line);border-radius:3px;overflow:hidden}
+#torchFill{height:100%;width:100%;background:#8FC7FF;transition:width .1s linear}
+
+#near{position:absolute;top:14px;right:16px;text-align:right}
+#near b{font-family:"Bricolage Grotesque",sans-serif;font-size:20px;display:block;line-height:1.1}
+#near.hot b{color:var(--warn)}
+
+#feet{position:absolute;bottom:52px;left:0;right:0;display:flex;justify-content:center;gap:9px}
+.foot{width:30px;height:7px;border-radius:2px;background:#FFFFFF14;border:1px solid var(--line);transition:background .1s}
+.foot.next{background:var(--pale);border-color:var(--pale)}
+
+#alert{position:absolute;inset:0;opacity:0;box-shadow:inset 0 0 100px 24px #FF3B4E;transition:opacity .3s}
+#msg{position:absolute;top:34%;left:0;right:0;text-align:center;font-family:"Bricolage Grotesque",sans-serif;
+  font-size:clamp(22px,4.6vw,38px);text-transform:uppercase;letter-spacing:-.02em;opacity:0;
+  transition:opacity .2s;color:var(--warn)}
+
+.screen{position:fixed;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;
+  gap:clamp(22px,6vw,60px);padding:22px;background:#04050AF7;backdrop-filter:blur(10px)}
+.screen.hide{display:none}
+.col{max-width:390px}
+h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:clamp(44px,10vw,84px);
+  line-height:.82;letter-spacing:-.05em;text-transform:uppercase}
+h1 em{font-style:normal;color:var(--dim)}
+.kicker{font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+.rules{font-size:11.5px;line-height:1.8;color:#A6B0C2;margin-top:14px}
+.rules b{color:var(--pale);font-weight:700}
+.rules div{margin-bottom:6px}
+button{font:inherit;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--pale);background:#FFFFFF0E;border:1px solid var(--line);border-radius:9px;
+  padding:14px 12px;cursor:pointer;width:100%;transition:background .14s,border-color .14s,transform .07s}
+button:active{transform:scale(.98)}
+#calBtn{border-style:dashed;font-size:10.5px;padding:11px;margin-bottom:8px}
+#goBtn{background:var(--pale);border-color:var(--pale);color:#04050A;font-size:15px;padding:16px}
+#calNote{font-size:9px;letter-spacing:.12em;color:var(--dim);text-align:center;margin-top:8px;min-height:12px}
+#result{font-family:"Bricolage Grotesque",sans-serif;font-size:clamp(32px,7vw,58px);line-height:.9;
+  text-transform:uppercase;letter-spacing:-.03em;color:var(--warn)}
+#final{font-family:"Bricolage Grotesque",sans-serif;font-size:52px;margin:10px 0 2px}
+#sub{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:16px}
+#over .col{text-align:center;max-width:330px}
+#over button{margin-top:8px}
+
+#rotate{position:fixed;inset:0;z-index:9;display:none;flex-direction:column;align-items:center;
+  justify-content:center;gap:18px;background:var(--ink);text-align:center;padding:30px}
+#rotate.show{display:flex}
+#rotate .ph{width:52px;height:88px;border:3px solid var(--pale);border-radius:11px;animation:turn 2.4s ease-in-out infinite}
+@keyframes turn{0%,28%{transform:rotate(0)}55%,100%{transform:rotate(-90deg)}}
+#rotate p{font-family:"Bricolage Grotesque",sans-serif;font-size:24px;text-transform:uppercase}
+#rotate small{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+#err{position:fixed;left:0;right:0;bottom:0;z-index:12;background:#7A0C18;color:#fff;font-size:10px;
+  padding:8px 12px;display:none;font-family:ui-monospace,monospace}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div id="steps"><div class="tag">Steps</div><b id="stepN">0</b></div>
+  <div id="near"><div class="tag">In your area</div><b id="nearN">0</b></div>
+  <div id="noiseBox">
+    <div class="tag">Noise</div>
+    <div id="noiseBar"><div id="noiseFill"></div><div id="thresh" style="left:100%"></div></div>
+  </div>
+  <div id="torchBox"><div class="tag">Torch</div><div id="torchBar"><div id="torchFill"></div></div></div>
+  <div id="feet"><div class="foot" id="footL"></div><div class="foot" id="footR"></div></div>
+  <div id="alert"></div><div id="msg"></div>
+</div>
+
+<div class="screen" id="title">
+  <div class="col">
+    <div class="kicker">They hunt by sound</div>
+    <h1>Qui<em>et</em></h1>
+    <div class="rules">
+      <div><b>Alternate taps</b> — left, right, left, right — to walk. That's your stride.</div>
+      <div><b>Tap the same side twice</b> to turn that way. It costs you your rhythm.</div>
+      <div><b>How fast you tap is how loud you are.</b> Hurrying gets you killed.</div>
+      <div><b>Hold</b> either side for the torch. You can't walk while you look, and light draws them.</div>
+      <div><b>Tilt the phone</b> to sweep the beam without turning your body.</div>
+      <div>The more crawlers near you, the quieter you have to be. Watch the red line.</div>
+    </div>
+  </div>
+  <div class="col" style="width:100%;max-width:300px">
+    <button id="calBtn">Set neutral tilt</button>
+    <button id="goBtn">Go in</button>
+    <div id="calNote"></div>
+  </div>
+</div>
+
+<div class="screen hide" id="over">
+  <div class="col">
+    <div id="result">Found</div>
+    <div id="final">0</div>
+    <div id="sub">steps</div>
+    <button id="again" style="background:var(--pale);border-color:var(--pale);color:#04050A">Again</button>
+    <button id="menu">Back</button>
+  </div>
+</div>
+
+<div id="rotate"><div class="ph"></div><p>Turn your phone</p><small>Quiet is played sideways</small></div>
+<div id="err"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+window.onerror=function(m,s,l){var e=document.getElementById('err');
+  e.style.display='block'; e.textContent='ERROR: '+m+' ('+l+')';};
+const $=id=>document.getElementById(id);
+
+/* ===================== audio ===================== */
+let AC=null, drone=null;
+function audioInit(){
+  if(AC) return;
+  try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
+  const g=AC.createGain(); g.gain.value=.05; g.connect(AC.destination);
+  const f=AC.createBiquadFilter(); f.type='lowpass'; f.frequency.value=180; f.connect(g);
+  [41,41.7,62].forEach(hz=>{ const o=AC.createOscillator(); o.type='sawtooth';
+    o.frequency.value=hz; o.connect(f); o.start(); });
+  drone=g;
+}
+function noiseBurst(dur,freq,vol,type){
+  if(!AC) return;
+  const n=AC.createBufferSource(), len=Math.floor(AC.sampleRate*dur);
+  const buf=AC.createBuffer(1,len,AC.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len);
+  n.buffer=buf;
+  const f=AC.createBiquadFilter(); f.type=type||'lowpass'; f.frequency.value=freq;
+  const g=AC.createGain(); g.gain.value=vol;
+  g.gain.exponentialRampToValueAtTime(.0001, AC.currentTime+dur);
+  n.connect(f); f.connect(g); g.connect(AC.destination); n.start();
+}
+function tone(hz,dur,vol,type){
+  if(!AC) return;
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type=type||'sine'; o.frequency.value=hz; g.gain.value=vol;
+  g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+dur);
+  o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime+dur);
+}
+const buzz=ms=>{ try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} };
+
+/* ===================== scene ===================== */
+const scene=new THREE.Scene();
+scene.background=new THREE.Color('#04050A');
+scene.fog=new THREE.FogExp2('#04050A',.10);
+const camera=new THREE.PerspectiveCamera(66,innerWidth/innerHeight,.05,90);
+scene.add(camera);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight('#243047',.16));
+const halo=new THREE.PointLight('#4E5E7A',.5,4.5,2); scene.add(halo);
+
+/* torch */
+const beam=new THREE.Group(); scene.add(beam);
+const spot=new THREE.SpotLight('#EAF2FF',0,26,.30,.55,1.2);
+spot.position.set(0,1.5,0); beam.add(spot);
+const spotTarget=new THREE.Object3D(); spotTarget.position.set(0,1.0,-14);
+beam.add(spotTarget); spot.target=spotTarget;
+
+/* floor */
+const fc=document.createElement('canvas'); fc.width=fc.height=256;
+const fx=fc.getContext('2d');
+fx.fillStyle='#0E1118'; fx.fillRect(0,0,256,256);
+for(let i=0;i<1400;i++){ fx.fillStyle='rgba(150,165,190,'+(Math.random()*.06)+')';
+  fx.fillRect(Math.random()*256,Math.random()*256,2,2); }
+fx.strokeStyle='#161B26'; fx.lineWidth=4;
+for(let i=0;i<=256;i+=64){ fx.beginPath();fx.moveTo(i,0);fx.lineTo(i,256);fx.stroke();
+  fx.beginPath();fx.moveTo(0,i);fx.lineTo(256,i);fx.stroke(); }
+const ftex=new THREE.CanvasTexture(fc);
+ftex.wrapS=ftex.wrapT=THREE.RepeatWrapping; ftex.repeat.set(60,60);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(240,240),
+  new THREE.MeshLambertMaterial({map:ftex,color:'#8C97AC'}));
+floor.rotation.x=-Math.PI/2; scene.add(floor);
+const ceil=new THREE.Mesh(new THREE.PlaneGeometry(240,240),
+  new THREE.MeshLambertMaterial({color:'#0A0C12'}));
+ceil.rotation.x=Math.PI/2; ceil.position.y=3.4; scene.add(ceil);
+
+/* pillars */
+const pillarGeo=new THREE.BoxGeometry(1.1,3.4,1.1);
+const pillarMat=new THREE.MeshLambertMaterial({color:'#39404F'});
+const CELL=7, active=new Map();
+function h2(i,j,s){ let h=(i*374761393+j*668265263+s*1442695040)|0;
+  h=(h^(h>>13))*1274126177|0; return ((h^(h>>16))>>>0)/4294967296; }
+function updateWorld(px,pz){
+  const ci=Math.round(px/CELL), cj=Math.round(pz/CELL), R=4, keep=new Set();
+  for(let i=ci-R;i<=ci+R;i++) for(let j=cj-R;j<=cj+R;j++){
+    if(h2(i,j,1)>.62) continue;
+    const k=i+':'+j; keep.add(k);
+    if(!active.has(k)){
+      const m=new THREE.Mesh(pillarGeo,pillarMat);
+      m.position.set(i*CELL+(h2(i,j,2)-.5)*4, 1.7, j*CELL+(h2(i,j,3)-.5)*4);
+      m.scale.set(.6+h2(i,j,4)*1.1, 1, .6+h2(i,j,5)*1.1);
+      scene.add(m); active.set(k,m);
+    }
+  }
+  for(const [k,m] of active) if(!keep.has(k)){ scene.remove(m); active.delete(k); }
+}
+
+/* crawlers */
+const crawlers=[];
+const bodyMat=new THREE.MeshLambertMaterial({color:'#12151C'});
+function makeCrawler(){
+  const g=new THREE.Group();
+  const b=new THREE.Mesh(new THREE.BoxGeometry(.8,.42,1.25),bodyMat); b.position.y=.34; g.add(b);
+  const hd=new THREE.Mesh(new THREE.BoxGeometry(.5,.34,.45),bodyMat); hd.position.set(0,.42,-.72); g.add(hd);
+  [-1,1].forEach(s=>{ [.35,-.35].forEach(z=>{
+    const l=new THREE.Mesh(new THREE.BoxGeometry(.13,.5,.13),bodyMat);
+    l.position.set(s*.42,.22,z); g.add(l); }); });
+  const eyes=[];
+  [-.13,.13].forEach(x=>{
+    const e=new THREE.Mesh(new THREE.SphereGeometry(.055,6,6),
+      new THREE.MeshBasicMaterial({color:'#46586E'}));
+    e.position.set(x,.46,-.93); g.add(e); eyes.push(e);
+  });
+  scene.add(g);
+  return {obj:g, eyes, state:'dormant', hunt:new THREE.Vector3(), lost:0, wob:Math.random()*9};
+}
+for(let i=0;i<14;i++){ const c=makeCrawler(); c.obj.visible=false; crawlers.push(c); }
+
+/* ===================== state ===================== */
+let G=null, running=false;
+function newGame(){
+  G={ x:0, z:0, head:0, steps:0, lastFoot:null, lastTap:0, cadence:.8,
+      noise:0, alertLvl:0, torch:false, batt:100, bob:0, t:0, dead:false,
+      camY:1.5, sway:0, nearCount:0, spawnT:0 };
+  crawlers.forEach(c=>{ c.obj.visible=false; c.state='dormant'; });
+  for(let i=0;i<5;i++) spawnCrawler(true);
+  updateWorld(0,0);
+}
+function spawnCrawler(initial){
+  const c=crawlers.find(c=>!c.obj.visible); if(!c) return;
+  const a=Math.random()*Math.PI*2, r=initial?(9+Math.random()*10):(16+Math.random()*10);
+  c.obj.position.set(G.x+Math.cos(a)*r, 0, G.z+Math.sin(a)*r);
+  c.obj.rotation.y=Math.random()*6.28;
+  c.obj.visible=true; c.state='dormant'; c.lost=0;
+  c.eyes.forEach(e=>e.material.color.set('#46586E'));
+}
+
+/* ===================== input ===================== */
+let tiltRaw=0, tiltSmooth=0, neutral=0, tiltOK=false;
+function onTilt(e){
+  let v = (innerWidth>innerHeight) ? (e.beta||0) : (e.gamma||0);
+  if(window.orientation===-90) v=-v;
+  tiltRaw=v; tiltOK=true;
+}
+window.addEventListener('deviceorientation',onTilt);
+$('calBtn').addEventListener('click',async()=>{
+  try{
+    if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+      const r=await DeviceOrientationEvent.requestPermission();
+      if(r!=='granted'){ $('calNote').textContent='Tilt denied — beam stays centred'; return; }
+    }
+    window.addEventListener('deviceorientation',onTilt);
+    setTimeout(()=>{ neutral=tiltRaw; $('calBtn').style.borderStyle='solid';
+      $('calNote').textContent = tiltOK ? 'Neutral set — beam sweeps as you tilt'
+                                        : 'No motion sensed — beam stays centred'; },400);
+  }catch(e){ $('calNote').textContent='Tilt unavailable here'; }
+});
+
+const held=new Map();
+const cvsEl=renderer.domElement;
+cvsEl.addEventListener('pointerdown',e=>{
+  if(!running) return;
+  const side=e.clientX<innerWidth/2?'L':'R';
+  held.set(e.pointerId,{side,t:performance.now()});
+  try{cvsEl.setPointerCapture(e.pointerId);}catch(_){}
+});
+function release(e){
+  const p=held.get(e.pointerId); if(!p) return;
+  held.delete(e.pointerId);
+  if(performance.now()-p.t < 250) doStep(p.side);
+}
+cvsEl.addEventListener('pointerup',release);
+cvsEl.addEventListener('pointercancel',release);
+
+function doStep(side){
+  if(!G||G.dead) return;
+  const now=performance.now();
+  const gap=Math.min(2, (now-G.lastTap)/1000);
+  G.lastTap=now;
+  // loudness: quick taps are loud, slow taps are near-silent
+  const loud = 5 + 36 * Math.max(0, Math.min(1, (.62-gap)/.5));
+  if(G.lastFoot && G.lastFoot===side){
+    // same foot twice = pivot
+    G.head += (side==='L'?-1:1)*0.30;
+    G.noise += loud*.55;
+    G.sway = (side==='L'?-1:1)*.09;
+    noiseBurst(.13,340,Math.min(.5,loud/70),'lowpass');
+  } else {
+    // alternating = a stride
+    const stride=.62;
+    G.x -= Math.sin(G.head)*stride;
+    G.z -= Math.cos(G.head)*stride;
+    G.steps++; G.noise += loud;
+    G.bob=1;
+    noiseBurst(.16,260,Math.min(.6,loud/58),'lowpass');
+  }
+  G.lastFoot=side;
+  paintFeet();
+}
+function paintFeet(){
+  const nxt = G.lastFoot==='L' ? 'R' : (G.lastFoot==='R' ? 'L' : null);
+  $('footL').classList.toggle('next', nxt!=='R');
+  $('footR').classList.toggle('next', nxt!=='L');
+}
+
+/* ===================== loop ===================== */
+const clock=new THREE.Clock();
+let msgT=0;
+function say(txt){ const m=$('msg'); m.textContent=txt; m.style.opacity=1; msgT=1.1; }
+
+function tick(){
+  requestAnimationFrame(tick);
+  const dt=Math.min(clock.getDelta(),.05);
+
+  if(running && G && !G.dead){
+    G.t+=dt;
+
+    /* torch: held = on */
+    const wantTorch = held.size>0 && (performance.now()-Math.min(...[...held.values()].map(h=>h.t)) > 250);
+    G.torch = wantTorch && G.batt>3;
+    if(G.torch){ G.batt=Math.max(0,G.batt-dt*13); G.noise += dt*19; }
+    else G.batt=Math.min(100,G.batt+dt*5.5);
+    spot.intensity += ((G.torch?2.2:0)-spot.intensity)*Math.min(1,dt*14);
+
+    /* noise decay — standing still is your only real defence */
+    const still = (performance.now()-G.lastTap) > 700;
+    G.noise = Math.max(0, G.noise - dt*(still?30:19));
+    G.noise = Math.min(120, G.noise);
+
+    /* how many are close, and how quiet that forces you to be */
+    let near=0;
+    crawlers.forEach(c=>{ if(c.obj.visible &&
+      c.obj.position.distanceTo(new THREE.Vector3(G.x,0,G.z))<14) near++; });
+    G.nearCount=near;
+    const thresholdVal = Math.max(22, 96 - near*13);
+
+    /* alert builds while you're over the line */
+    if(G.noise > thresholdVal) G.alertLvl += (G.noise-thresholdVal)*dt*1.5;
+    else G.alertLvl = Math.max(0, G.alertLvl - dt*26);
+
+    if(G.alertLvl>100){
+      G.alertLvl=0;
+      const pv=new THREE.Vector3(G.x,0,G.z);
+      const cand=crawlers.filter(c=>c.obj.visible&&c.state==='dormant')
+        .sort((a,b)=>a.obj.position.distanceTo(pv)-b.obj.position.distanceTo(pv));
+      if(cand[0]){
+        cand[0].state='hunting'; cand[0].hunt.copy(pv); cand[0].lost=0;
+        cand[0].eyes.forEach(e=>e.material.color.set('#FF3B4E'));
+        say('something moved'); buzz(90); tone(150,.5,.16,'sawtooth');
+      }
+    }
+
+    /* crawler behaviour */
+    const pv=new THREE.Vector3(G.x,0,G.z);
+    crawlers.forEach(c=>{
+      if(!c.obj.visible) return;
+      c.wob+=dt;
+      if(c.state==='hunting'){
+        if(G.noise>16) c.hunt.copy(pv);      // fresh sound re-fixes them on you
+        const d=c.hunt.clone().sub(c.obj.position); d.y=0;
+        const dist=d.length();
+        if(dist>.4){ d.normalize(); c.obj.position.addScaledVector(d, 1.45*dt);
+          c.obj.rotation.y=Math.atan2(-d.x,-d.z); }
+        c.obj.position.y=Math.abs(Math.sin(c.wob*9))*.06;
+        c.lost += (G.noise<16 ? dt : -dt*2);
+        if(c.lost>5.5){ c.state='dormant'; c.lost=0;
+          c.eyes.forEach(e=>e.material.color.set('#46586E')); }
+        if(c.obj.position.distanceTo(pv)<1.15) die();
+      } else {
+        c.obj.position.y=Math.sin(c.wob*.8)*.02;
+      }
+      // recycle anything left far behind
+      if(c.obj.position.distanceTo(pv)>34) c.obj.visible=false;
+    });
+
+    /* keep the area populated — denser the further you go */
+    G.spawnT-=dt;
+    const wantCount=Math.min(11, 4+Math.floor(G.steps/45));
+    const alive=crawlers.filter(c=>c.obj.visible).length;
+    if(G.spawnT<=0 && alive<wantCount){ spawnCrawler(false); G.spawnT=1.4; }
+
+    updateWorld(G.x,G.z);
+
+    /* camera */
+    G.bob=Math.max(0,G.bob-dt*4.5);
+    G.sway*=(1-Math.min(1,dt*6));
+    camera.position.set(G.x, 1.5-Math.sin((1-G.bob)*Math.PI)*.055, G.z);
+    camera.rotation.set(0,G.head,G.sway);
+    halo.position.set(G.x,1.4,G.z);
+
+    /* beam sweeps with tilt, independent of body */
+    tiltSmooth += ((tiltOK?tiltRaw:neutral)-tiltSmooth)*Math.min(1,dt*10);
+    let off=(tiltSmooth-neutral)/45; off=Math.max(-1,Math.min(1,off));
+    beam.position.set(G.x,0,G.z);
+    beam.rotation.y = G.head - off*1.15;
+
+    /* proximity heartbeat */
+    const nearest=crawlers.filter(c=>c.obj.visible&&c.state==='hunting')
+      .reduce((m,c)=>Math.min(m,c.obj.position.distanceTo(pv)),99);
+    if(nearest<9 && Math.floor(G.t*2.2)!==Math.floor((G.t-dt)*2.2)) tone(58,.16,.10,'sine');
+
+    /* HUD */
+    $('stepN').textContent=G.steps;
+    $('nearN').textContent=near;
+    $('near').classList.toggle('hot', near>=5);
+    $('noiseFill').style.width=Math.min(100,G.noise/1.2)+'%';
+    $('thresh').style.left=Math.min(100,thresholdVal/1.2)+'%';
+    $('torchFill').style.width=G.batt+'%';
+    $('alert').style.opacity=Math.min(.85,G.alertLvl/110);
+    if(msgT>0){ msgT-=dt; if(msgT<=0) $('msg').style.opacity=0; }
+  }
+
+  renderer.render(scene,camera);
+}
+
+/* ===================== flow ===================== */
+function start(){
+  audioInit(); if(AC && AC.state==='suspended') AC.resume();
+  newGame(); running=true; paintFeet();
+  $('title').classList.add('hide'); $('over').classList.add('hide');
+  $('alert').style.opacity=0;
+}
+function die(){
+  if(G.dead) return;
+  G.dead=true; running=false;
+  buzz([70,50,180]); noiseBurst(.7,900,.5,'bandpass'); tone(70,1.2,.22,'sawtooth');
+  $('final').textContent=G.steps;
+  $('over').classList.remove('hide');
+  $('alert').style.opacity=0; $('msg').style.opacity=0;
+}
+$('goBtn').addEventListener('click',start);
+$('again').addEventListener('click',start);
+$('menu').addEventListener('click',()=>{ $('over').classList.add('hide'); $('title').classList.remove('hide'); });
+
+function checkOrient(){
+  const p=innerHeight>innerWidth;
+  $('rotate').classList.toggle('show',p);
+  if(p&&running){ running=false; $('title').classList.remove('hide'); }
+}
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); checkOrient();
+});
+addEventListener('orientationchange',()=>setTimeout(checkOrient,300));
+
+newGame(); running=false; checkOrient(); tick();
+</script>
+</body>
+</html>
